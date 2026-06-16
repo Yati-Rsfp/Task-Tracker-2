@@ -1,0 +1,118 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../hooks/useToast'
+import TaskCard from '../components/TaskCard'
+import TaskModal from '../components/TaskModal'
+import { displayStatus } from '../lib/constants'
+
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'running', label: 'Ongoing' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'stuck', label: 'Stuck' },
+  { key: 'onhold', label: 'On Hold' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'overdue', label: 'Overdue' },
+  { key: 'done', label: 'Done' },
+]
+
+export default function Tasks({ showAll = false }) {
+  const { profile, isAdmin } = useAuth()
+  const { toast } = useToast()
+  const [tasks, setTasks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [ownerFilter, setOwnerFilter] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [editTask, setEditTask] = useState(null)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => { fetchTasks() }, [])
+
+  async function fetchTasks() {
+    let q = supabase.from('tasks').select('*, remarks(*)').order('priority', { ascending: true }).order('created_at', { ascending: false })
+    if (!showAll && !isAdmin) q = q.eq('assigned_to', profile?.name)
+    const { data, error } = await q
+    if (error) toast('Error loading tasks', 'error')
+    setTasks(data || [])
+    setLoading(false)
+  }
+
+  async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return
+    await supabase.from('remarks').delete().eq('task_id', id)
+    await supabase.from('tasks').delete().eq('id', id)
+    toast('Task deleted', 'success')
+    fetchTasks()
+  }
+
+  function openEdit(task) { setEditTask(task); setShowModal(true) }
+  function openNew() { setEditTask(null); setShowModal(true) }
+
+  const priOrder = { high: 0, medium: 1, low: 2 }
+  let visible = [...tasks]
+  if (search) visible = visible.filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.note || '').toLowerCase().includes(search.toLowerCase()))
+  if (ownerFilter) visible = visible.filter(t => t.assigned_to === ownerFilter)
+  if (filter !== 'all') {
+    if (filter === 'overdue') visible = visible.filter(t => displayStatus(t) === 'overdue')
+    else visible = visible.filter(t => t.status === filter)
+  }
+  visible.sort((a, b) => priOrder[a.priority] - priOrder[b.priority])
+
+  const cnt = s => tasks.filter(t => s === 'overdue' ? displayStatus(t) === 'overdue' : t.status === s).length
+
+  if (loading) return <div className="loading"><div className="spinner" /><span>Loading...</span></div>
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">{showAll ? '📋 All Tasks' : '✅ My Tasks'}</h1>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks..." style={{ width: '200px' }} />
+          {isAdmin && <button className="btn-primary" onClick={openNew}>+ New Task</button>}
+        </div>
+      </div>
+
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(90px,1fr))', marginBottom: '1rem' }}>
+        {[{ s: 'running', l: 'Ongoing', c: '#185FA5' }, { s: 'pending', l: 'Pending', c: '#BA7517' }, { s: 'stuck', l: 'Stuck', c: '#D85A30' }, { s: 'overdue', l: 'Overdue', c: '#791F1F' }, { s: 'done', l: 'Done', c: '#1D9E75' }].map(x => (
+          <div key={x.s} className="stat-card" onClick={() => setFilter(x.s)}>
+            <div className="stat-num" style={{ color: x.c, fontSize: '20px' }}>{cnt(x.s)}</div>
+            <div className="stat-lbl">{x.l}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="filters">
+        {FILTERS.map(f => (
+          <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
+            {f.label} {f.key !== 'all' ? `(${cnt(f.key)})` : `(${tasks.length})`}
+          </button>
+        ))}
+        {showAll && (
+          <>
+            <span style={{ color: '#e5e7eb', margin: '0 4px' }}>|</span>
+            {['Aman', 'Anurag', 'Kunal', 'Harshita'].map(m => (
+              <button key={m} className={`filter-btn ${ownerFilter === m ? 'active' : ''}`} onClick={() => setOwnerFilter(ownerFilter === m ? '' : m)}>{m}</button>
+            ))}
+          </>
+        )}
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+          <p>Koi task nahi is filter mein</p>
+        </div>
+      ) : (
+        <div className="task-list">
+          {visible.map(t => (
+            <TaskCard key={t.id} task={t} onUpdate={fetchTasks} onDelete={deleteTask} onEdit={openEdit} />
+          ))}
+        </div>
+      )}
+
+      {showModal && <TaskModal task={editTask} onClose={() => setShowModal(false)} onSave={() => { setShowModal(false); fetchTasks() }} />}
+    </div>
+  )
+}
