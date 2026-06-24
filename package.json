@@ -9,11 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/server": "^1.1.0",
     "@supabase/supabase-js": "^2.39.0",
+    "date-fns": "^3.0.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.21.0",
-    "date-fns": "^3.0.6"
+    "react-router-dom": "^6.21.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
