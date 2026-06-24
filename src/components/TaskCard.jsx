@@ -153,7 +153,7 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit }) {
             </>
           )}
 
-          {(isAdmin || canEdit) && (
+          {isAdmin && (
             <div className="tl-section">
               <div className="sec-lbl">📅 Timeline</div>
               <div className="form-row form-row-3">

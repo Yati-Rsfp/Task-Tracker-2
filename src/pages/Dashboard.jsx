@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { displayStatus, isOverdue, fmtDate, AVATAR_COLORS, initials } from '../lib/constants'
+import { useAuth } from '../hooks/useAuth'
+import { displayStatus, isOverdue, fmtDate, AVATAR_COLORS, initials, TEAM_MEMBERS } from '../lib/constants'
 import { useToast } from '../hooks/useToast'
-
-const MEMBERS = ['Aman', 'Anurag', 'Kunal', 'Harshita']
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const { memberProfiles } = useAuth()
   const { toast } = useToast()
 
   useEffect(() => { fetchAll() }, [])
@@ -23,10 +23,11 @@ export default function Dashboard() {
   const overdue = all.filter(t => isOverdue(t.deadline, t.status)).length
   const high = all.filter(t => t.priority === 'high' && t.status !== 'done').length
 
-  const memberStats = MEMBERS.map(m => {
-    const mt = all.filter(t => t.assigned_to === m)
+  const members = memberProfiles.length ? memberProfiles : TEAM_MEMBERS.map(name => ({ name }))
+  const memberStats = members.map(m => {
+    const mt = all.filter(t => t.assigned_to === m.name)
     return {
-      name: m, total: mt.length, done: mt.filter(t => t.status === 'done').length,
+      name: m.name, total: mt.length, done: mt.filter(t => t.status === 'done').length,
       stuck: mt.filter(t => t.status === 'stuck').length,
       overdue: mt.filter(t => isOverdue(t.deadline, t.status)).length,
       pending: mt.filter(t => t.status === 'pending').length,

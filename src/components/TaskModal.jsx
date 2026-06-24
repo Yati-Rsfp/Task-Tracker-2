@@ -1,21 +1,45 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, TEAM_MEMBERS } from '../lib/constants'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 
 export default function TaskModal({ task, onClose, onSave }) {
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, memberProfiles } = useAuth()
   const { toast } = useToast()
+  const assignableMembers = useMemo(
+    () => (memberProfiles.length ? memberProfiles.map(p => p.name) : TEAM_MEMBERS),
+    [memberProfiles]
+  )
   const [form, setForm] = useState({
     title: '', note: '', status: 'pending', priority: 'medium',
-    assigned_to: 'Aman', deadline: '', start_date: '', target_date: ''
+    assigned_to: assignableMembers[0] || 'Aman', deadline: '', start_date: '', target_date: ''
   })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (task) setForm({ title: task.title || '', note: task.note || '', status: task.status || 'pending', priority: task.priority || 'medium', assigned_to: task.assigned_to || 'Aman', deadline: task.deadline || '', start_date: task.start_date || '', target_date: task.target_date || '' })
-  }, [task])
+    setForm(prev => {
+      if (task) {
+        return {
+          title: task.title || '',
+          note: task.note || '',
+          status: task.status || 'pending',
+          priority: task.priority || 'medium',
+          assigned_to: task.assigned_to || assignableMembers[0] || 'Aman',
+          deadline: task.deadline || '',
+          start_date: task.start_date || '',
+          target_date: task.target_date || '',
+        }
+      }
+
+      if (prev.assigned_to) return prev
+
+      return {
+        ...prev,
+        assigned_to: assignableMembers[0] || 'Aman',
+      }
+    })
+  }, [task, assignableMembers])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -62,7 +86,7 @@ export default function TaskModal({ task, onClose, onSave }) {
             <div className="form-group">
               <label>Assign to</label>
               <select value={form.assigned_to} onChange={e => set('assigned_to', e.target.value)}>
-                {TEAM_MEMBERS.map(m => <option key={m} value={m}>{m}</option>)}
+                {assignableMembers.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </div>

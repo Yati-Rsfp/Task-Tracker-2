@@ -18,7 +18,7 @@ const FILTERS = [
 ]
 
 export default function Tasks({ showAll = false }) {
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, memberProfiles } = useAuth()
   const { toast } = useToast()
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -27,6 +27,7 @@ export default function Tasks({ showAll = false }) {
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [search, setSearch] = useState('')
+  const memberNames = memberProfiles.length ? memberProfiles.map(m => m.name) : ['Aman', 'Anurag', 'Kunal', 'Harshita']
 
   useEffect(() => { fetchTasks() }, [])
 
@@ -92,7 +93,7 @@ export default function Tasks({ showAll = false }) {
         {showAll && (
           <>
             <span style={{ color: '#e5e7eb', margin: '0 4px' }}>|</span>
-            {['Aman', 'Anurag', 'Kunal', 'Harshita'].map(m => (
+            {memberNames.map(m => (
               <button key={m} className={`filter-btn ${ownerFilter === m ? 'active' : ''}`} onClick={() => setOwnerFilter(ownerFilter === m ? '' : m)}>{m}</button>
             ))}
           </>

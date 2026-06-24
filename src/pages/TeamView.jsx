@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { displayStatus, STATUS_LABELS, AVATAR_COLORS, initials, isOverdue } from '../lib/constants'
-
-const MEMBERS = ['Aman', 'Anurag', 'Kunal', 'Harshita']
+import { useAuth } from '../hooks/useAuth'
+import { displayStatus, STATUS_LABELS, AVATAR_COLORS, initials, isOverdue, TEAM_MEMBERS } from '../lib/constants'
 
 export default function TeamView() {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState('Aman')
+  const [selected, setSelected] = useState('')
+  const { memberProfiles } = useAuth()
 
   useEffect(() => { fetchAll() }, [])
 
@@ -19,11 +19,13 @@ export default function TeamView() {
 
   if (loading) return <div className="loading"><div className="spinner" /><span>Loading...</span></div>
 
-  const memberTasks = tasks.filter(t => t.assigned_to === selected)
+  const members = memberProfiles.length ? memberProfiles : TEAM_MEMBERS.map(name => ({ name }))
+  const activeSelected = selected || members[0]?.name || ''
+  const memberTasks = tasks.filter(t => t.assigned_to === activeSelected)
   const mt = tasks
-  const stats = MEMBERS.map(m => {
-    const t = mt.filter(x => x.assigned_to === m)
-    return { name: m, total: t.length, done: t.filter(x => x.status === 'done').length, stuck: t.filter(x => x.status === 'stuck').length, overdue: t.filter(x => isOverdue(x.deadline, x.status)).length }
+  const stats = members.map(m => {
+    const t = mt.filter(x => x.assigned_to === m.name)
+    return { name: m.name, total: t.length, done: t.filter(x => x.status === 'done').length, stuck: t.filter(x => x.status === 'stuck').length, overdue: t.filter(x => isOverdue(x.deadline, x.status)).length }
   })
 
   return (
@@ -32,7 +34,7 @@ export default function TeamView() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: '10px', marginBottom: '1.5rem' }}>
         {stats.map(s => (
-          <div key={s.name} className="card card-hover" style={{ cursor: 'pointer', borderColor: selected === s.name ? '#185FA5' : '#e5e7eb', borderWidth: selected === s.name ? '2px' : '1px' }} onClick={() => setSelected(s.name)}>
+          <div key={s.name} className="card card-hover" style={{ cursor: 'pointer', borderColor: activeSelected === s.name ? '#185FA5' : '#e5e7eb', borderWidth: activeSelected === s.name ? '2px' : '1px' }} onClick={() => setSelected(s.name)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <div className={`avatar ${AVATAR_COLORS[s.name] || 'avatar-gray'}`}>{initials(s.name)}</div>
               <span style={{ fontWeight: 500, fontSize: '14px' }}>{s.name}</span>
@@ -48,10 +50,10 @@ export default function TeamView() {
       </div>
 
       <div style={{ fontWeight: 600, marginBottom: '1rem' }}>
-        {selected}'s Tasks ({memberTasks.length})
+        {activeSelected}'s Tasks ({memberTasks.length})
       </div>
       <div className="task-list">
-        {memberTasks.length === 0 && <div className="empty-state"><p>Koi task assign nahi hai {selected} ko</p></div>}
+        {memberTasks.length === 0 && <div className="empty-state"><p>Koi task assign nahi hai {activeSelected} ko</p></div>}
         {memberTasks.map(t => {
           const ds = displayStatus(t)
           const over = ds === 'overdue'

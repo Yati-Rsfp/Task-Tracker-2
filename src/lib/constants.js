@@ -1,4 +1,8 @@
 export const TEAM_MEMBERS = ['Aman', 'Anurag', 'Kunal', 'Harshita', 'External']
+export const MEMBER_ROLE_LABELS = {
+  admin: 'Admin',
+  member: 'Member',
+}
 export const MEMBER_ROLES = { admin: 'admin', member: 'member' }
 
 export const STATUS_OPTIONS = [
