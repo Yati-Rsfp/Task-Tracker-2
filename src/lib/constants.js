@@ -8,6 +8,7 @@ export const MEMBER_ROLES = { admin: 'admin', member: 'member' }
 export const STATUS_OPTIONS = [
   { value: 'running', label: 'Ongoing' },
   { value: 'pending', label: 'Pending' },
+  { value: 'under_review', label: 'Under Review' },
   { value: 'stuck', label: 'Stuck' },
   { value: 'onhold', label: 'On Hold' },
   { value: 'upcoming', label: 'Upcoming' },
@@ -21,7 +22,7 @@ export const PRIORITY_OPTIONS = [
 ]
 
 export const STATUS_LABELS = {
-  running: 'Ongoing', pending: 'Pending', stuck: 'Stuck',
+  running: 'Ongoing', pending: 'Pending', under_review: 'Under Review', stuck: 'Stuck',
   onhold: 'On Hold', upcoming: 'Upcoming', done: 'Done', overdue: 'Overdue'
 }
 

@@ -10,6 +10,7 @@ const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'running', label: 'Ongoing' },
   { key: 'pending', label: 'Pending' },
+  { key: 'under_review', label: 'Under Review' },
   { key: 'stuck', label: 'Stuck' },
   { key: 'onhold', label: 'On Hold' },
   { key: 'upcoming', label: 'Upcoming' },

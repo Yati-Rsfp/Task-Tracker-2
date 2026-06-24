@@ -15,6 +15,7 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit }) {
   const over = ds === 'overdue'
   const canEdit = isAdmin || task.assigned_to === profile?.name
   const remarks = task.remarks || []
+  const latestRemark = [...remarks].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
 
   async function changeStatus(newStatus) {
     if (!canEdit) return
@@ -89,6 +90,16 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit }) {
               <span className="date-pill">💬 {remarks.length}</span>
             )}
           </div>
+          {latestRemark && (
+            <div style={{ marginTop: '8px', padding: '8px 10px', background: '#f9fafb', borderRadius: '6px', border: '1px solid #eef2f7' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>
+                Latest comment · {latestRemark.author}
+              </div>
+              <div style={{ fontSize: '12px', color: '#374151' }}>
+                {latestRemark.text}
+              </div>
+            </div>
+          )}
         </div>
         <div className="task-right">
           {canEdit ? (
