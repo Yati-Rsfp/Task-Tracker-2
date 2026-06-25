@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+﻿import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { initials, AVATAR_COLORS } from '../lib/constants'
 
@@ -35,8 +35,9 @@ export default function Sidebar() {
         <NavItem to="/tasks" icon="✅" label="My Tasks" />
         {isAdmin && <NavItem to="/all-tasks" icon="📋" label="All Tasks" />}
         {isAdmin && <NavItem to="/team" icon="👥" label="Team View" />}
+        {isAdmin && <NavItem to="/members" icon="👥" label="Members" />}
         <NavItem to="/checkin" icon="🌅" label="Morning Checkin" />
-        <NavItem to="/eod" icon="🌆" label="EOD Update" />
+        <NavItem to="/eod" icon="🌇" label="EOD Update" />
         {isAdmin && <NavItem to="/summary" icon="🤖" label="AI Summary" />}
       </nav>
       <div className="sidebar-user">
