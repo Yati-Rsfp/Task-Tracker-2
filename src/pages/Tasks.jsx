@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import TaskCard from '../components/TaskCard'
 import TaskModal from '../components/TaskModal'
-import { displayStatus } from '../lib/constants'
+import { displayStatus, extractMentions } from '../lib/constants'
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -29,15 +29,35 @@ export default function Tasks({ showAll = false }) {
   const [editTask, setEditTask] = useState(null)
   const [search, setSearch] = useState('')
   const memberNames = memberProfiles.length ? memberProfiles.map(m => m.name) : ['Aman', 'Anurag', 'Kunal', 'Harshita']
+  const normalizedProfileName = profile?.name?.trim().toLowerCase() || ''
+  const [taggedTaskIds, setTaggedTaskIds] = useState(new Set())
 
   useEffect(() => { fetchTasks() }, [])
 
   async function fetchTasks() {
-    let q = supabase.from('tasks').select('*, remarks(*)').order('priority', { ascending: true }).order('created_at', { ascending: false })
-    if (!showAll && !isAdmin) q = q.eq('assigned_to', profile?.name)
-    const { data, error } = await q
-    if (error) toast('Error loading tasks', 'error')
-    setTasks(data || [])
+    const { data: tasksData, error: tasksError } = await supabase
+      .from('tasks')
+      .select('*, remarks(*)')
+      .order('priority', { ascending: true })
+      .order('created_at', { ascending: false })
+
+    if (tasksError) toast('Error loading tasks', 'error')
+
+    const { data: mentionData, error: mentionError } = normalizedProfileName
+      ? await supabase.from('task_mentions').select('task_id').eq('user_name', normalizedProfileName)
+      : { data: [], error: null }
+
+    setTasks(tasksData || [])
+    const idsFromTable = new Set((mentionData || []).map(m => m.task_id))
+    const idsFromRemarks = new Set(
+      (tasksData || [])
+        .filter(t => extractMentions((t.remarks || []).map(r => r.text).join(' \n'), memberNames).map(n => n.toLowerCase()).includes(normalizedProfileName))
+        .map(t => t.id)
+    )
+    setTaggedTaskIds(new Set([...idsFromTable, ...idsFromRemarks]))
+    if (mentionError) {
+      console.warn('task_mentions lookup failed, falling back to remark parsing', mentionError.message)
+    }
     setLoading(false)
   }
 
@@ -53,16 +73,33 @@ export default function Tasks({ showAll = false }) {
   function openNew() { setEditTask(null); setShowModal(true) }
 
   const priOrder = { high: 0, medium: 1, low: 2 }
-  let visible = [...tasks]
-  if (search) visible = visible.filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.note || '').toLowerCase().includes(search.toLowerCase()))
-  if (ownerFilter) visible = visible.filter(t => t.assigned_to === ownerFilter)
-  if (filter !== 'all') {
-    if (filter === 'overdue') visible = visible.filter(t => displayStatus(t) === 'overdue')
-    else visible = visible.filter(t => t.status === filter)
-  }
-  visible.sort((a, b) => priOrder[a.priority] - priOrder[b.priority])
+  const allMentions = tasks.map(t => ({
+    ...t,
+    mentionHits: extractMentions((t.remarks || []).map(r => r.text).join(' \n'), memberNames),
+  }))
 
-  const cnt = s => tasks.filter(t => s === 'overdue' ? displayStatus(t) === 'overdue' : t.status === s).length
+  const applyFilters = list => {
+    let visible = [...list]
+    if (search) visible = visible.filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.note || '').toLowerCase().includes(search.toLowerCase()))
+    if (ownerFilter) visible = visible.filter(t => t.assigned_to === ownerFilter)
+    if (filter !== 'all') {
+      if (filter === 'overdue') visible = visible.filter(t => displayStatus(t) === 'overdue')
+      else visible = visible.filter(t => t.status === filter)
+    }
+    visible.sort((a, b) => priOrder[a.priority] - priOrder[b.priority])
+    return visible
+  }
+
+  const assignedTasks = applyFilters(allMentions.filter(t => t.assigned_to === profile?.name))
+  const taggedTasks = applyFilters(allMentions.filter(t => taggedTaskIds.has(t.id) && t.assigned_to !== profile?.name))
+  const memberVisibleTasks = applyFilters(allMentions.filter(t => t.assigned_to === profile?.name || taggedTaskIds.has(t.id)))
+  const allVisible = applyFilters(allMentions)
+  const totalVisibleCount = showAll || isAdmin ? allVisible.length : memberVisibleTasks.length
+
+  const cnt = s => {
+    const base = showAll || isAdmin ? allVisible : memberVisibleTasks
+    return base.filter(t => s === 'overdue' ? displayStatus(t) === 'overdue' : t.status === s).length
+  }
 
   if (loading) return <div className="loading"><div className="spinner" /><span>Loading...</span></div>
 
@@ -88,7 +125,7 @@ export default function Tasks({ showAll = false }) {
       <div className="filters">
         {FILTERS.map(f => (
           <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
-            {f.label} {f.key !== 'all' ? `(${cnt(f.key)})` : `(${tasks.length})`}
+            {f.label} {f.key !== 'all' ? `(${cnt(f.key)})` : `(${totalVisibleCount})`}
           </button>
         ))}
         {showAll && (
@@ -101,14 +138,46 @@ export default function Tasks({ showAll = false }) {
         )}
       </div>
 
-      {visible.length === 0 ? (
+      {!showAll && !isAdmin ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <section>
+            <div className="sec-lbl" style={{ marginBottom: '10px' }}>Assigned to you</div>
+            {assignedTasks.length === 0 ? (
+              <div className="empty-state">
+                <p>Koi assigned task nahi hai</p>
+              </div>
+            ) : (
+              <div className="task-list">
+                {assignedTasks.map(t => (
+                  <TaskCard key={t.id} task={t} onUpdate={fetchTasks} onDelete={deleteTask} onEdit={openEdit} contextLabel="Assigned" />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <div className="sec-lbl" style={{ marginBottom: '10px' }}>Tagged with you</div>
+            {taggedTasks.length === 0 ? (
+              <div className="empty-state">
+                <p>Koi tagged task nahi hai</p>
+              </div>
+            ) : (
+              <div className="task-list">
+                {taggedTasks.map(t => (
+                  <TaskCard key={t.id} task={t} onUpdate={fetchTasks} onDelete={deleteTask} onEdit={openEdit} contextLabel="Tagged" />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      ) : allVisible.length === 0 ? (
         <div className="empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
           <p>Koi task nahi is filter mein</p>
         </div>
       ) : (
         <div className="task-list">
-          {visible.map(t => (
+          {allVisible.map(t => (
             <TaskCard key={t.id} task={t} onUpdate={fetchTasks} onDelete={deleteTask} onEdit={openEdit} />
           ))}
         </div>

@@ -49,6 +49,26 @@ export function detectStatusFromRemark(text) {
   return null
 }
 
+export function extractMentions(text, names = []) {
+  if (!text) return []
+  const matches = text.match(/@([A-Za-z0-9_]+)/g) || []
+  const normalizedNames = names.map(n => n.trim()).filter(Boolean)
+  const lowerMap = new Map(normalizedNames.map(n => [n.toLowerCase(), n]))
+  const seen = new Set()
+  const mentions = []
+
+  for (const raw of matches) {
+    const candidate = raw.slice(1).toLowerCase()
+    const found = lowerMap.get(candidate)
+    if (found && !seen.has(found)) {
+      seen.add(found)
+      mentions.push(found)
+    }
+  }
+
+  return mentions
+}
+
 export function isOverdue(deadline, status) {
   if (!deadline || status === 'done' || status === 'onhold') return false
   return new Date(deadline) < new Date(new Date().toDateString())

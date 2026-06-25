@@ -45,6 +45,23 @@ $$;
 
 grant execute on function admin_set_profile_role(uuid, text) to authenticated;
 
+-- 0. Task mentions table (who was tagged on a task)
+create table if not exists task_mentions (
+  id uuid default gen_random_uuid() primary key,
+  task_id uuid references tasks on delete cascade not null,
+  user_name text not null,
+  mentioned_by text,
+  created_at timestamptz default now()
+);
+create unique index if not exists task_mentions_task_user_unique on task_mentions(task_id, user_name);
+alter table task_mentions enable row level security;
+drop policy if exists "Authenticated users can read task mentions" on task_mentions;
+create policy "Authenticated users can read task mentions" on task_mentions for select using (auth.uid() is not null);
+drop policy if exists "Authenticated users can add task mentions" on task_mentions;
+create policy "Authenticated users can add task mentions" on task_mentions for insert with check (auth.uid() is not null);
+
+grant select, insert on table task_mentions to authenticated;
+
 -- Auto-create profile on signup
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -139,6 +156,36 @@ drop policy if exists "Authenticated users can add remarks" on remarks;
 create policy "Authenticated users can add remarks" on remarks for insert with check (auth.uid() is not null);
 
 grant select, insert on table remarks to authenticated;
+
+create or replace function sync_task_mentions_from_remark()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into task_mentions (task_id, user_name, mentioned_by)
+  select
+    new.task_id,
+    lower(p.name),
+    new.author
+  from profiles p
+  where lower(new.text) like '%' || '@' || lower(p.name) || '%'
+  on conflict (task_id, user_name) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists remarks_sync_task_mentions on remarks;
+create trigger remarks_sync_task_mentions
+after insert on remarks
+for each row execute procedure sync_task_mentions_from_remark();
+
+insert into task_mentions (task_id, user_name, mentioned_by)
+select distinct
+  r.task_id,
+  lower(p.name),
+  r.author
+from remarks r
+join profiles p on lower(r.text) like '%' || '@' || lower(p.name) || '%'
+on conflict (task_id, user_name) do nothing;
 
 -- 4. Seed your existing tasks (run after creating accounts)
 -- INSERT INTO tasks (title, status, priority, assigned_to, note, deadline) VALUES
