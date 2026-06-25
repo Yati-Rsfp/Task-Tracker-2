@@ -1,11 +1,11 @@
 ﻿import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { STATUS_OPTIONS, STATUS_LABELS, detectStatusFromRemark, isOverdue, displayStatus, initials, fmtDate, extractMentions, TEAM_MEMBERS } from '../lib/constants'
+import { STATUS_OPTIONS, STATUS_LABELS, isOverdue, displayStatus, initials, fmtDate, extractMentions, TEAM_MEMBERS } from '../lib/constants'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 
 export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabel = '' }) {
-  const { isAdmin, profile, memberProfiles } = useAuth()
+  const { isAdmin, profile, profiles } = useAuth()
   const { toast } = useToast()
   const remarkRef = useRef(null)
   const [expanded, setExpanded] = useState(false)
@@ -14,13 +14,13 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
   const [mentionMenu, setMentionMenu] = useState({ open: false, query: '', start: 0, end: 0 })
 
   const mentionCandidates = useMemo(
-    () => (memberProfiles.length ? memberProfiles.map(p => p.name) : TEAM_MEMBERS),
-    [memberProfiles]
+    () => (profiles.length ? profiles.map(p => p.name) : TEAM_MEMBERS),
+    [profiles]
   )
 
   const ds = displayStatus(task)
   const over = ds === 'overdue'
-  const canEdit = isAdmin || task.assigned_to === profile?.name
+  const canEdit = isAdmin || task.assigned_to_id === profile?.id || task.assigned_to === profile?.name
   const remarks = task.remarks || []
   const latestRemark = [...remarks].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
   const latestMentions = latestRemark ? extractMentions(latestRemark.text, mentionCandidates) : []
@@ -101,26 +101,32 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
   async function addRemark() {
     if (!remarkText.trim() || saving) return
     setSaving(true)
-    const detected = detectStatusFromRemark(remarkText)
-    let autoMsg = ''
-    const prevStatus = task.status
     const mentions = extractMentions(remarkText, mentionCandidates)
-
-    if (detected && detected.status !== task.status) {
-      await supabase.from('tasks').update({ status: detected.status, updated_at: new Date().toISOString() }).eq('id', task.id)
-      autoMsg = `Auto-update: ${STATUS_LABELS[prevStatus]} -> ${STATUS_LABELS[detected.status]}`
-    }
 
     await supabase.from('remarks').insert({
       task_id: task.id,
       text: remarkText.trim(),
       author: profile?.name || 'Unknown',
       is_auto: false,
-      auto_msg: autoMsg || null,
+      auto_msg: null,
     })
 
-    if (autoMsg) toast(autoMsg, 'success')
-    else toast('Remark saved', 'success')
+    if (mentions.length > 0) {
+      await Promise.allSettled(
+        mentions.map(user_name =>
+          supabase.from('task_mentions').upsert(
+            {
+              task_id: task.id,
+              user_name: user_name.toLowerCase(),
+              mentioned_by: profile?.name || 'Unknown',
+            },
+            { onConflict: 'task_id,user_name' }
+          )
+        )
+      )
+    }
+
+    toast('Remark saved', 'success')
     setRemarkText('')
     setSaving(false)
     onUpdate()
@@ -339,7 +345,7 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
                   Send
                 </button>
               </div>
-              <div className="smart-hint">⚡ Smart: "done", "stuck", "hold", "start" likhne se status auto-update hoga</div>
+              <div className="smart-hint">Comments are manual only now. Status changes use the status dropdown.</div>
             </>
           )}
 

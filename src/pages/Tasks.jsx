@@ -19,7 +19,7 @@ const FILTERS = [
 ]
 
 export default function Tasks({ showAll = false }) {
-  const { profile, isAdmin, memberProfiles } = useAuth()
+  const { profile, isAdmin, profiles } = useAuth()
   const { toast } = useToast()
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -28,8 +28,9 @@ export default function Tasks({ showAll = false }) {
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [search, setSearch] = useState('')
-  const memberNames = memberProfiles.length ? memberProfiles.map(m => m.name) : ['Aman', 'Anurag', 'Kunal', 'Harshita']
-  const normalizedProfileName = profile?.name?.trim().toLowerCase() || ''
+  const currentUserName = profile?.name || ''
+  const memberNames = profiles.length ? profiles.map(m => m.name) : ['Aman', 'Anurag', 'Kunal', 'Harshita']
+  const normalizedProfileName = currentUserName.trim().toLowerCase()
   const [taggedTaskIds, setTaggedTaskIds] = useState(new Set())
 
   useEffect(() => { fetchTasks() }, [])
@@ -90,14 +91,17 @@ export default function Tasks({ showAll = false }) {
     return visible
   }
 
-  const assignedTasks = applyFilters(allMentions.filter(t => t.assigned_to === profile?.name))
-  const taggedTasks = applyFilters(allMentions.filter(t => taggedTaskIds.has(t.id) && t.assigned_to !== profile?.name))
-  const memberVisibleTasks = applyFilters(allMentions.filter(t => t.assigned_to === profile?.name || taggedTaskIds.has(t.id)))
+  const isTaskOwnedByCurrentUser = task =>
+    task.assigned_to_id === profile?.id || task.assigned_to?.trim().toLowerCase() === normalizedProfileName
+
+  const assignedTasks = applyFilters(allMentions.filter(t => isTaskOwnedByCurrentUser(t)))
+  const taggedTasks = applyFilters(allMentions.filter(t => taggedTaskIds.has(t.id) && !isTaskOwnedByCurrentUser(t)))
+  const memberVisibleTasks = applyFilters(allMentions.filter(t => isTaskOwnedByCurrentUser(t) || taggedTaskIds.has(t.id)))
   const allVisible = applyFilters(allMentions)
-  const totalVisibleCount = showAll || isAdmin ? allVisible.length : memberVisibleTasks.length
+  const totalVisibleCount = showAll ? allVisible.length : memberVisibleTasks.length
 
   const cnt = s => {
-    const base = showAll || isAdmin ? allVisible : memberVisibleTasks
+    const base = showAll ? allVisible : memberVisibleTasks
     return base.filter(t => s === 'overdue' ? displayStatus(t) === 'overdue' : t.status === s).length
   }
 
@@ -138,7 +142,7 @@ export default function Tasks({ showAll = false }) {
         )}
       </div>
 
-      {!showAll && !isAdmin ? (
+      {!showAll ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <section>
             <div className="sec-lbl" style={{ marginBottom: '10px' }}>Assigned to you</div>
