@@ -5,48 +5,80 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 
 export default function TaskModal({ task, onClose, onSave }) {
-  const { profile, isAdmin, memberProfiles } = useAuth()
+  const { profile, isAdmin, profiles } = useAuth()
   const { toast } = useToast()
-  const assignableMembers = useMemo(
-    () => (memberProfiles.length ? memberProfiles.map(p => p.name) : TEAM_MEMBERS),
-    [memberProfiles]
-  )
+  const currentUserName = profile?.name || ''
+  const assignableMembers = useMemo(() => {
+    const base = (profiles.length ? profiles : TEAM_MEMBERS.map(name => ({ id: name.toLowerCase(), name })))
+      .filter(p => p.name)
+      .map(p => ({ value: p.id, label: p.name }))
+
+    if (!isAdmin) return base
+
+    const filtered = base.filter(p => p.label !== currentUserName)
+    return [{ value: 'self', label: 'Self' }, ...filtered]
+  }, [profiles, isAdmin, currentUserName])
   const [form, setForm] = useState({
     title: '', note: '', status: 'pending', priority: 'medium',
-    assigned_to: assignableMembers[0] || 'Aman', deadline: '', start_date: '', target_date: ''
+    assigned_to_id: isAdmin ? 'self' : (assignableMembers[0]?.value || ''), deadline: '', start_date: '', target_date: ''
   })
   const [saving, setSaving] = useState(false)
+
+  function resolveAssignee(value) {
+    if (value === 'self') {
+      return {
+        id: profile?.id || null,
+        name: currentUserName || 'Admin',
+      }
+    }
+
+    const found = profiles.find(p => p.id === value)
+    if (found) return { id: found.id, name: found.name }
+    return { id: null, name: value || '' }
+  }
 
   useEffect(() => {
     setForm(prev => {
       if (task) {
+        const taskAssignee = task.assigned_to_id || profiles.find(p => p.name?.toLowerCase() === task.assigned_to?.toLowerCase())?.id || ''
         return {
           title: task.title || '',
           note: task.note || '',
           status: task.status || 'pending',
           priority: task.priority || 'medium',
-          assigned_to: task.assigned_to || assignableMembers[0] || 'Aman',
+          assigned_to_id: isAdmin && task.assigned_to_id === profile?.id ? 'self' : (taskAssignee || assignableMembers[0]?.value || ''),
           deadline: task.deadline || '',
           start_date: task.start_date || '',
           target_date: task.target_date || '',
         }
       }
 
-      if (prev.assigned_to) return prev
+      if (prev.assigned_to_id) return prev
 
       return {
         ...prev,
-        assigned_to: assignableMembers[0] || 'Aman',
+        assigned_to_id: isAdmin ? 'self' : (assignableMembers[0]?.value || ''),
       }
     })
-  }, [task, assignableMembers])
+  }, [task, assignableMembers, isAdmin, currentUserName, profile?.id, profiles])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   async function handleSave() {
     if (!form.title.trim()) return
     setSaving(true)
-    const payload = { ...form, title: form.title.trim(), note: form.note.trim(), deadline: form.deadline || null, start_date: form.start_date || null, target_date: form.target_date || null, updated_at: new Date().toISOString() }
+    const assignee = resolveAssignee(form.assigned_to_id)
+    const payload = {
+      ...form,
+      title: form.title.trim(),
+      note: form.note.trim(),
+      assigned_to_id: assignee.id,
+      assigned_to: assignee.name,
+      deadline: form.deadline || null,
+      start_date: form.start_date || null,
+      target_date: form.target_date || null,
+      updated_at: new Date().toISOString(),
+    }
     if (task?.id) {
       const { error } = await supabase.from('tasks').update(payload).eq('id', task.id)
       if (!error) { toast('Task updated!', 'success'); onSave() }
@@ -85,8 +117,8 @@ export default function TaskModal({ task, onClose, onSave }) {
             </div>
             <div className="form-group">
               <label>Assign to</label>
-              <select value={form.assigned_to} onChange={e => set('assigned_to', e.target.value)}>
-                {assignableMembers.map(m => <option key={m} value={m}>{m}</option>)}
+              <select value={form.assigned_to_id} onChange={e => set('assigned_to_id', e.target.value)}>
+                {assignableMembers.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </div>
           </div>

@@ -62,6 +62,22 @@ create policy "Authenticated users can add task mentions" on task_mentions for i
 
 grant select, insert on table task_mentions to authenticated;
 
+create or replace function sync_task_assigned_names_on_profile_update()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  update tasks
+  set assigned_to = new.name
+  where assigned_to_id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists profile_sync_task_assignees on profiles;
+create trigger profile_sync_task_assignees
+after update of name on profiles
+for each row
+execute procedure sync_task_assigned_names_on_profile_update();
+
 -- Auto-create profile on signup
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -82,6 +98,7 @@ create table if not exists tasks (
   status text not null default 'pending',
   priority text not null default 'medium',
   assigned_to text not null,
+  assigned_to_id uuid references profiles(id),
   start_date date,
   deadline date,
   target_date date,
@@ -89,6 +106,55 @@ create table if not exists tasks (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+alter table tasks add column if not exists assigned_to_id uuid references profiles(id);
+
+create or replace function sync_task_assignee_fields()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  assignee_name text;
+  assignee_id uuid;
+begin
+  if new.assigned_to_id is not null then
+    select name into assignee_name from profiles where id = new.assigned_to_id;
+    if assignee_name is not null then
+      new.assigned_to := assignee_name;
+    end if;
+  elsif new.assigned_to is not null then
+    select id into assignee_id
+    from profiles
+    where lower(name) = lower(new.assigned_to)
+    limit 1;
+
+    if assignee_id is not null then
+      new.assigned_to_id := assignee_id;
+      select name into assignee_name from profiles where id = assignee_id;
+      if assignee_name is not null then
+        new.assigned_to := assignee_name;
+      end if;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists task_sync_assignee_fields on tasks;
+create trigger task_sync_assignee_fields
+before insert or update on tasks
+for each row
+execute procedure sync_task_assignee_fields();
+
+update tasks t
+set assigned_to_id = p.id
+from profiles p
+where lower(t.assigned_to) = lower(p.name)
+  and t.assigned_to_id is null;
+
+update tasks t
+set assigned_to = p.name
+from profiles p
+where t.assigned_to_id = p.id;
+
 alter table tasks enable row level security;
 drop policy if exists "All authenticated users can read tasks" on tasks;
 create policy "All authenticated users can read tasks" on tasks for select using (auth.uid() is not null);
@@ -102,7 +168,8 @@ create policy "Admins can update all tasks" on tasks for update using (
 );
 drop policy if exists "Members can update their own tasks status" on tasks;
 create policy "Members can update their own tasks status" on tasks for update using (
-  assigned_to = (select name from profiles where id = auth.uid())
+  assigned_to_id = auth.uid()
+  or assigned_to = (select name from profiles where id = auth.uid())
 );
 drop policy if exists "Admins can delete tasks" on tasks;
 create policy "Admins can delete tasks" on tasks for delete using (
@@ -123,6 +190,7 @@ begin
     or new.note is distinct from old.note
     or new.priority is distinct from old.priority
     or new.assigned_to is distinct from old.assigned_to
+    or new.assigned_to_id is distinct from old.assigned_to_id
     or new.start_date is distinct from old.start_date
     or new.deadline is distinct from old.deadline
     or new.target_date is distinct from old.target_date
