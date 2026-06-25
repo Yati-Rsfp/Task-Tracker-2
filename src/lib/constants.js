@@ -39,16 +39,6 @@ export const AVATAR_COLORS = {
   Harshita: 'avatar-red', External: 'avatar-gray', Me: 'avatar-blue', Admin: 'avatar-blue'
 }
 
-export function detectStatusFromRemark(text) {
-  const lower = text.toLowerCase()
-  for (const rule of KEYWORD_RULES) {
-    for (const w of rule.words) {
-      if (lower.includes(w)) return rule
-    }
-  }
-  return null
-}
-
 export function extractMentions(text, names = []) {
   if (!text) return []
   const matches = text.match(/@([A-Za-z0-9_]+)/g) || []

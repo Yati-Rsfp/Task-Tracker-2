@@ -1,6 +1,6 @@
 ﻿import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { STATUS_OPTIONS, STATUS_LABELS, detectStatusFromRemark, isOverdue, displayStatus, initials, fmtDate, extractMentions, TEAM_MEMBERS } from '../lib/constants'
+import { STATUS_OPTIONS, STATUS_LABELS, isOverdue, displayStatus, initials, fmtDate, extractMentions, TEAM_MEMBERS } from '../lib/constants'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 
@@ -101,22 +101,14 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
   async function addRemark() {
     if (!remarkText.trim() || saving) return
     setSaving(true)
-    const detected = detectStatusFromRemark(remarkText)
-    let autoMsg = ''
-    const prevStatus = task.status
     const mentions = extractMentions(remarkText, mentionCandidates)
-
-    if (detected && detected.status !== task.status) {
-      await supabase.from('tasks').update({ status: detected.status, updated_at: new Date().toISOString() }).eq('id', task.id)
-      autoMsg = `Auto-update: ${STATUS_LABELS[prevStatus]} -> ${STATUS_LABELS[detected.status]}`
-    }
 
     await supabase.from('remarks').insert({
       task_id: task.id,
       text: remarkText.trim(),
       author: profile?.name || 'Unknown',
       is_auto: false,
-      auto_msg: autoMsg || null,
+      auto_msg: null,
     })
 
     if (mentions.length > 0) {
@@ -134,8 +126,7 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
       )
     }
 
-    if (autoMsg) toast(autoMsg, 'success')
-    else toast('Remark saved', 'success')
+    toast('Remark saved', 'success')
     setRemarkText('')
     setSaving(false)
     onUpdate()
@@ -354,7 +345,7 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
                   Send
                 </button>
               </div>
-              <div className="smart-hint">⚡ Smart: "done", "stuck", "hold", "start" likhne se status auto-update hoga</div>
+              <div className="smart-hint">Comments are manual only now. Status changes use the status dropdown.</div>
             </>
           )}
 
