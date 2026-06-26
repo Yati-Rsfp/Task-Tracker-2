@@ -13,9 +13,13 @@ import Members from './pages/Members'
 
 function Layout({ children }) {
   return (
-    <div style={{ display: 'flex' }}>
+    /* Added strict viewport layout controls */
+    <div style={{ display: 'flex', width: '100vw', maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
       <Sidebar />
-      <div className="main-content">{children}</div>
+      {/* minWidth: 0 forces this div to respect layout boundaries instead of text sizing */}
+      <div className="main-content" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: '100%' }}>
+        {children}
+      </div>
     </div>
   )
 }
