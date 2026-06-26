@@ -73,6 +73,10 @@ export default function Tasks({ showAll = false }) {
   function openEdit(task) { setEditTask(task); setShowModal(true) }
   function openNew() { setEditTask(null); setShowModal(true) }
 
+  function isTaskOwnedByCurrentUser(task) {
+    return task.assigned_to_id === profile?.id || task.assigned_to?.trim().toLowerCase() === normalizedProfileName
+  }
+
   const priOrder = { high: 0, medium: 1, low: 2 }
   const statusOrder = task => (displayStatus(task) === 'done' ? 1 : 0)
   const allMentions = tasks.map(t => ({
@@ -80,13 +84,19 @@ export default function Tasks({ showAll = false }) {
     mentionHits: extractMentions((t.remarks || []).map(r => r.text).join(' \n'), memberNames),
   }))
 
-  const applyFilters = list => {
+  const scopeTasks = showAll
+    ? allMentions
+    : allMentions.filter(t => isTaskOwnedByCurrentUser(t) || taggedTaskIds.has(t.id))
+
+  const baseVisibleTasks = scopeTasks.filter(t =>
+    search ? t.title.toLowerCase().includes(search.toLowerCase()) || (t.note || '').toLowerCase().includes(search.toLowerCase()) : true
+  ).filter(t => (ownerFilter ? t.assigned_to === ownerFilter : true))
+
+  const applyFilters = (list, activeFilter = filter) => {
     let visible = [...list]
-    if (search) visible = visible.filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.note || '').toLowerCase().includes(search.toLowerCase()))
-    if (ownerFilter) visible = visible.filter(t => t.assigned_to === ownerFilter)
-    if (filter !== 'all') {
-      if (filter === 'overdue') visible = visible.filter(t => displayStatus(t) === 'overdue')
-      else visible = visible.filter(t => t.status === filter)
+    if (activeFilter !== 'all') {
+      if (activeFilter === 'overdue') visible = visible.filter(t => displayStatus(t) === 'overdue')
+      else visible = visible.filter(t => t.status === activeFilter)
     }
     visible.sort((a, b) =>
       statusOrder(a) - statusOrder(b) ||
@@ -96,18 +106,14 @@ export default function Tasks({ showAll = false }) {
     return visible
   }
 
-  const isTaskOwnedByCurrentUser = task =>
-    task.assigned_to_id === profile?.id || task.assigned_to?.trim().toLowerCase() === normalizedProfileName
-
-  const assignedTasks = applyFilters(allMentions.filter(t => isTaskOwnedByCurrentUser(t)))
-  const taggedTasks = applyFilters(allMentions.filter(t => taggedTaskIds.has(t.id) && !isTaskOwnedByCurrentUser(t)))
-  const memberVisibleTasks = applyFilters(allMentions.filter(t => isTaskOwnedByCurrentUser(t) || taggedTaskIds.has(t.id)))
-  const allVisible = applyFilters(allMentions)
-  const totalVisibleCount = showAll ? allVisible.length : memberVisibleTasks.length
+  const assignedTasks = applyFilters(baseVisibleTasks.filter(t => isTaskOwnedByCurrentUser(t)))
+  const taggedTasks = applyFilters(baseVisibleTasks.filter(t => taggedTaskIds.has(t.id) && !isTaskOwnedByCurrentUser(t)))
+  const memberVisibleTasks = applyFilters(baseVisibleTasks)
+  const allVisible = applyFilters(baseVisibleTasks)
+  const totalVisibleCount = baseVisibleTasks.length
 
   const cnt = s => {
-    const base = showAll ? allVisible : memberVisibleTasks
-    return base.filter(t => s === 'overdue' ? displayStatus(t) === 'overdue' : t.status === s).length
+    return baseVisibleTasks.filter(t => s === 'overdue' ? displayStatus(t) === 'overdue' : t.status === s).length
   }
 
   if (loading) return <div className="loading"><div className="spinner" /><span>Loading...</span></div>
