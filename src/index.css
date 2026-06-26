@@ -136,3 +136,31 @@ textarea { resize: vertical; min-height: 72px; }
   .main-content { margin-left: 0; padding: 1rem; }
   .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
 }
+
+
+/* ==========================================================================
+   FIXES FOR TEAM VIEW PAGE BLOW-OUT (Safe overrides)
+   ========================================================================== */
+
+/* 1. Force main-content to treat its width calculation strictly within visible bounds */
+.main-content {
+  min-width: 0;
+  max-width: 100vw; /* Keeps layout locked inside screen viewport boundary */
+  overflow-x: hidden; /* Prevent horizontal page scrolling */
+}
+
+/* 2. Guard task titles so they wrap text lines down naturally */
+.task-title {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 3. Guard the user name text strings in the top grid cards from forcing a stretch */
+.card .text-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: 100%;
+}

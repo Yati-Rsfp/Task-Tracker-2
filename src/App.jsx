@@ -13,9 +13,13 @@ import Members from './pages/Members'
 
 function Layout({ children }) {
   return (
-    <div style={{ display: 'flex' }}>
+    /* Added strict viewport layout controls */
+    <div style={{ display: 'flex', width: '100vw', maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
       <Sidebar />
-      <div className="main-content">{children}</div>
+      {/* minWidth: 0 forces this div to respect layout boundaries instead of text sizing */}
+      <div className="main-content" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: '100%' }}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -35,8 +39,8 @@ function AppRoutes() {
       <Route path="/login" element={!user ? <AuthPage /> : <Navigate to="/" replace />} />
       <Route path="/" element={<ProtectedRoute><Layout><Navigate to={isAdmin ? "/dashboard" : "/checkin"} replace /></Layout></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute adminOnly><Layout><Dashboard /></Layout></ProtectedRoute>} />
-      <Route path="/tasks" element={<ProtectedRoute><Layout><Tasks showAll={false} /></Layout></ProtectedRoute>} />
-      <Route path="/all-tasks" element={<ProtectedRoute adminOnly><Layout><Tasks showAll={true} /></Layout></ProtectedRoute>} />
+      <Route path="/tasks" element={<ProtectedRoute><Layout><Tasks key="tasks-mine" showAll={false} /></Layout></ProtectedRoute>} />
+      <Route path="/all-tasks" element={<ProtectedRoute adminOnly><Layout><Tasks key="tasks-all" showAll={true} /></Layout></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute adminOnly><Layout><TeamView /></Layout></ProtectedRoute>} />
       <Route path="/members" element={<ProtectedRoute adminOnly><Layout><Members /></Layout></ProtectedRoute>} />
       <Route path="/checkin" element={<ProtectedRoute><Layout><Checkin /></Layout></ProtectedRoute>} />
