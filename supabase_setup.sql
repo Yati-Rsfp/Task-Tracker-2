@@ -162,6 +162,10 @@ drop policy if exists "Admins can insert tasks" on tasks;
 create policy "Admins can insert tasks" on tasks for insert with check (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
 );
+drop policy if exists "Members can insert own tasks" on tasks;
+create policy "Members can insert own tasks" on tasks for insert with check (
+  assigned_to_id = auth.uid()
+);
 drop policy if exists "Admins can update all tasks" on tasks;
 create policy "Admins can update all tasks" on tasks for update using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')

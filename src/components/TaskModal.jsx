@@ -8,32 +8,31 @@ export default function TaskModal({ task, onClose, onSave }) {
   const { profile, isAdmin, profiles } = useAuth()
   const { toast } = useToast()
   const currentUserName = profile?.name || ''
+  const currentUserId = profile?.id || ''
   const assignableMembers = useMemo(() => {
+    if (!currentUserId) return []
+
+    if (!isAdmin) {
+      return [{ value: currentUserId, label: 'Self' }]
+    }
+
     const base = (profiles.length ? profiles : TEAM_MEMBERS.map(name => ({ id: name.toLowerCase(), name })))
       .filter(p => p.name)
       .map(p => ({ value: p.id, label: p.name }))
 
-    if (!isAdmin) return base
-
-    const filtered = base.filter(p => p.label !== currentUserName)
-    return [{ value: 'self', label: 'Self' }, ...filtered]
-  }, [profiles, isAdmin, currentUserName])
+    const filtered = base.filter(p => p.value !== currentUserId)
+    return [{ value: currentUserId, label: 'Self' }, ...filtered]
+  }, [profiles, isAdmin, currentUserId])
   const [form, setForm] = useState({
     title: '', note: '', status: 'pending', priority: 'medium',
-    assigned_to_id: isAdmin ? 'self' : (assignableMembers[0]?.value || ''), deadline: '', start_date: '', target_date: ''
+    assigned_to_id: currentUserId || '', deadline: '', start_date: '', target_date: ''
   })
   const [saving, setSaving] = useState(false)
 
   function resolveAssignee(value) {
-    if (value === 'self') {
-      return {
-        id: profile?.id || null,
-        name: currentUserName || 'Admin',
-      }
-    }
-
     const found = profiles.find(p => p.id === value)
     if (found) return { id: found.id, name: found.name }
+    if (value === currentUserId) return { id: currentUserId, name: currentUserName || 'Self' }
     return { id: null, name: value || '' }
   }
 
@@ -46,7 +45,7 @@ export default function TaskModal({ task, onClose, onSave }) {
           note: task.note || '',
           status: task.status || 'pending',
           priority: task.priority || 'medium',
-          assigned_to_id: isAdmin && task.assigned_to_id === profile?.id ? 'self' : (taskAssignee || assignableMembers[0]?.value || ''),
+          assigned_to_id: taskAssignee || currentUserId || '',
           deadline: task.deadline || '',
           start_date: task.start_date || '',
           target_date: task.target_date || '',
@@ -57,10 +56,10 @@ export default function TaskModal({ task, onClose, onSave }) {
 
       return {
         ...prev,
-        assigned_to_id: isAdmin ? 'self' : (assignableMembers[0]?.value || ''),
+        assigned_to_id: currentUserId || '',
       }
     })
-  }, [task, assignableMembers, isAdmin, currentUserName, profile?.id, profiles])
+  }, [task, currentUserId, profiles])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -83,7 +82,7 @@ export default function TaskModal({ task, onClose, onSave }) {
       const { error } = await supabase.from('tasks').update(payload).eq('id', task.id)
       if (!error) { toast('Task updated!', 'success'); onSave() }
     } else {
-      const { error } = await supabase.from('tasks').insert({ ...payload, created_by: profile?.name || 'Admin' })
+      const { error } = await supabase.from('tasks').insert({ ...payload, created_by: currentUserName || 'User' })
       if (!error) { toast('Task added!', 'success'); onSave() }
       else { toast('Error: ' + error.message, 'error') }
     }

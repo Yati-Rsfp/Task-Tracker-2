@@ -74,6 +74,7 @@ export default function Tasks({ showAll = false }) {
   function openNew() { setEditTask(null); setShowModal(true) }
 
   const priOrder = { high: 0, medium: 1, low: 2 }
+  const statusOrder = task => (displayStatus(task) === 'done' ? 1 : 0)
   const allMentions = tasks.map(t => ({
     ...t,
     mentionHits: extractMentions((t.remarks || []).map(r => r.text).join(' \n'), memberNames),
@@ -87,7 +88,11 @@ export default function Tasks({ showAll = false }) {
       if (filter === 'overdue') visible = visible.filter(t => displayStatus(t) === 'overdue')
       else visible = visible.filter(t => t.status === filter)
     }
-    visible.sort((a, b) => priOrder[a.priority] - priOrder[b.priority])
+    visible.sort((a, b) =>
+      statusOrder(a) - statusOrder(b) ||
+      priOrder[a.priority] - priOrder[b.priority] ||
+      new Date(b.created_at) - new Date(a.created_at)
+    )
     return visible
   }
 
@@ -113,7 +118,7 @@ export default function Tasks({ showAll = false }) {
         <h1 className="page-title">{showAll ? '📋 All Tasks' : '✅ My Tasks'}</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks..." style={{ width: '200px' }} />
-          {isAdmin && <button className="btn-primary" onClick={openNew}>+ New Task</button>}
+          {(isAdmin || !showAll) && <button className="btn-primary" onClick={openNew}>+ New Task</button>}
         </div>
       </div>
 
