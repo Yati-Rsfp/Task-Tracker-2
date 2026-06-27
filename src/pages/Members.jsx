@@ -66,19 +66,21 @@ export default function Members() {
             return (
               <div
                 key={member.id}
+                className="member-row-responsive" /* Activates mobile layout safely */
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 140px 120px',
+                  gridTemplateColumns: '1fr 140px 120px', /* Your original desktop layout restored */
                   gap: '10px',
                   alignItems: 'center',
                   padding: '10px 0',
                   borderBottom: '1px solid #f3f4f6',
                 }}
               >
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 500, fontSize: '14px' }}>{member.name}</div>
-                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>{member.id}</div>
+                  <div style={{ fontSize: '12px', color: '#9ca3af', overflowWrap: 'anywhere' }}>{member.id}</div>
                 </div>
+                
                 <select
                   value={draftRole}
                   disabled={locked}
@@ -90,6 +92,7 @@ export default function Members() {
                     </option>
                   ))}
                 </select>
+                
                 <button
                   className="btn-primary"
                   onClick={() => saveRole(member)}

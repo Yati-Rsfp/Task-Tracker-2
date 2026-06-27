@@ -147,6 +147,8 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
 
   return (
     <div className={`task-card ${task.status === 'done' ? 'done' : ''} ${over ? 'overdue-border' : ''}`}>
+      
+      {/* 1. UPPER ROW FLEXBOX: Contains title, badges on the left, and control buttons on the right */}
       <div className="task-top">
         <div className="task-body">
           <div className={`task-title ${task.status === 'done' ? 'struck' : ''}`}>{task.title}</div>
@@ -174,33 +176,8 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
               <span className="date-pill">💬 {remarks.length}</span>
             )}
           </div>
-          {latestRemark && (
-            <div
-              style={{
-                marginTop: '8px',
-                padding: '8px 10px',
-                background: mentionedMe ? '#eff6ff' : '#f9fafb',
-                borderRadius: '6px',
-                border: mentionedMe ? '1px solid #bfdbfe' : '1px solid #eef2f7',
-              }}
-            >
-              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>
-                Latest comment · {latestRemark.author}
-                {mentionedMe && <span style={{ marginLeft: '8px', color: '#1d4ed8', fontWeight: 600 }}>You were tagged</span>}
-              </div>
-              <div style={{ fontSize: '12px', color: '#374151' }}>{latestRemark.text}</div>
-              {latestMentions.length > 0 && (
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                  {latestMentions.map(name => (
-                    <span key={name} className="badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>
-                      @{name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
+
         <div className="task-right">
           {canEdit ? (
             <select
@@ -230,6 +207,41 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit, contextLabe
         </div>
       </div>
 
+      {/* 2. STANDALONE BLOCK ELEMENT: Placed completely outside the flex wrapper to ensure full 100% width usage */}
+      {latestRemark && (
+        <div style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: '12px' }}>
+          <div
+            style={{
+              padding: '8px 10px',
+              background: mentionedMe ? '#eff6ff' : '#f9fafb',
+              borderRadius: '6px',
+              border: mentionedMe ? '1px solid #bfdbfe' : '1px solid #eef2f7',
+              width: '100%',
+              boxSizing: 'border-box',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word'
+            }}
+          >
+            <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>
+              Latest comment · {latestRemark.author}
+              {mentionedMe && <span style={{ marginLeft: '8px', color: '#1d4ed8', fontWeight: 600 }}>You were tagged</span>}
+            </div>
+            <div style={{ fontSize: '12px', color: '#374151', lineHeight: '1.4' }}>{latestRemark.text}</div>
+            {latestMentions.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                {latestMentions.map(name => (
+                  <span key={name} className="badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>
+                    @{name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3. EXPANDABLE AREA CONTAINER SECTION */}
       {expanded && (
         <div className="expand-area">
           <div className="sec-lbl">💬 Remarks / Updates</div>

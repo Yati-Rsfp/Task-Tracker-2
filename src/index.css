@@ -131,10 +131,72 @@ textarea { resize: vertical; min-height: 72px; }
 .loading { display: flex; align-items: center; justify-content: center; height: 100vh; color: var(--text2); }
 .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; margin-right: 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (max-width: 768px) {
+
+/* @media (max-width: 768px) {
   .sidebar { width: 100%; height: auto; position: relative; }
   .main-content { margin-left: 0; padding: 1rem; }
   .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+} */
+
+
+
+/* ==========================================================================
+   UPDATED MOBILE RESPONSIVE OVERRIDES (No Class Collisions)
+   ========================================================================= */
+@media (max-width: 768px) {
+  /* 1. Target the unique mobile drawer container we created */
+  .sidebar-mobile-drawer { 
+    width: 220px; 
+    height: 100vh; 
+    position: fixed; 
+    left: -220px; /* Fully hidden off-screen to the left */
+    top: 0;
+    transition: left 0.25s ease-in-out; /* Smooth slide out slide in transition animation */
+    z-index: 999;
+    background: var(--white);
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+  }
+
+  /* 2. Slide it into view when open class is toggled active */
+  .sidebar-mobile-drawer.open {
+    left: 0;
+  }
+
+  /* 3. Force your native sidebar inside the drawer to display perfectly at full width */
+  .sidebar-mobile-drawer .sidebar {
+    position: relative !important;
+    left: 0 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border-right: none !important;
+  }
+
+  /* 4. Ensure main layout viewing panel takes 100% screen */
+  .main-content { 
+    margin-left: 0 !important; 
+    padding: 1rem; 
+    width: 100%;
+    max-width: 100vw;
+    margin-top: 50px; /* Leaves space for the mobile top navigation bar header */
+  }
+
+  .form-row-2, .form-row-3 { 
+    grid-template-columns: 1fr; 
+  }
+
+  /* Force the member item grid to stack vertically on mobile screens only */
+  .member-row-responsive {
+    grid-template-columns: 1fr !important; /* Stack columns into a single file line */
+    gap: 12px !important;
+    padding: 12px 0 !important;
+  }
+  
+  /* Make selectors and buttons take full width on mobile for easy tapping */
+  .member-row-responsive select,
+  .member-row-responsive button {
+    width: 100% !important;
+  }
+
 }
 
 
